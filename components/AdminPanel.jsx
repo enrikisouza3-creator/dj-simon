@@ -251,7 +251,6 @@ function LoginScreen({ onLogin }) {
 
   const handle = () => {
     if (!key.trim()) return setErr("Insira a service role key");
-    // Quick validation: supabase service keys start with "eyJ"
     if (!key.startsWith("eyJ")) return setErr("Key inválida");
     onLogin(key.trim());
   };
@@ -356,9 +355,7 @@ function MembersTab({ serviceKey }) {
     <div>
       <div style={S.pageTitle}>Membros</div>
       <div style={S.subtitle}>Gerencie os membros da plataforma</div>
-
       {msg && <div style={S.alert(msg.type)}>{msg.text}</div>}
-
       <div style={S.card}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 16, letterSpacing: 1 }}>NOVO MEMBRO</div>
         <div style={S.grid2}>
@@ -389,7 +386,6 @@ function MembersTab({ serviceKey }) {
           </button>
         </div>
       </div>
-
       <div style={S.card}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 16, letterSpacing: 1 }}>
           TODOS OS MEMBROS ({members.length})
@@ -497,9 +493,7 @@ function PluginsTab({ serviceKey }) {
     <div>
       <div style={S.pageTitle}>Plugins</div>
       <div style={S.subtitle}>Gerencie os plugins disponíveis para download</div>
-
       {msg && <div style={S.alert(msg.type)}>{msg.text}</div>}
-
       <div style={S.card}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 16, letterSpacing: 1 }}>NOVO PLUGIN</div>
         <div style={S.grid2}>
@@ -527,7 +521,6 @@ function PluginsTab({ serviceKey }) {
           <button style={S.btn("primary")} onClick={create}>+ ADICIONAR PLUGIN</button>
         </div>
       </div>
-
       <div style={S.card}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 16, letterSpacing: 1 }}>PLUGINS ({plugins.length})</div>
         {loading ? <div style={{ color: "#475569", fontSize: 13 }}>Carregando...</div> :
@@ -606,9 +599,7 @@ function VideosTab({ serviceKey }) {
     <div>
       <div style={S.pageTitle}>Vídeos</div>
       <div style={S.subtitle}>Gerencie os vídeos do curso (YouTube)</div>
-
       {msg && <div style={S.alert(msg.type)}>{msg.text}</div>}
-
       <div style={S.card}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 16, letterSpacing: 1 }}>NOVO VÍDEO</div>
         <div style={S.grid2}>
@@ -632,7 +623,6 @@ function VideosTab({ serviceKey }) {
           <button style={S.btn("primary")} onClick={create}>+ ADICIONAR VÍDEO</button>
         </div>
       </div>
-
       <div style={S.card}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 16, letterSpacing: 1 }}>VÍDEOS ({videos.length})</div>
         {loading ? <div style={{ color: "#475569", fontSize: 13 }}>Carregando...</div> :
@@ -699,14 +689,12 @@ function DashboardTab({ serviceKey }) {
     <div>
       <div style={S.pageTitle}>Dashboard</div>
       <div style={S.subtitle}>Visão geral da plataforma</div>
-
       <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
         <StatCard num={stats.total} label="Total de membros" color="#f59e0b" />
         <StatCard num={stats.ativos} label="Membros ativos" color="#22c55e" />
         <StatCard num={stats.plugins} label="Plugins" color="#3b82f6" />
         <StatCard num={stats.videos} label="Vídeos" color="#8b5cf6" />
       </div>
-
       <div style={{ display: "flex", gap: 16 }}>
         <StatCard num={stats.pack} label="Plano Pack" color="#f59e0b" />
         <StatCard num={stats.curso} label="Plano Curso" color="#3b82f6" />
@@ -725,19 +713,28 @@ const TABS = [
 ];
 
 export default function AdminPanel() {
-  const [serviceKey, setServiceKey] = useState(() => sessionStorage.getItem("sk") || "");
+  // ✅ FIX: sessionStorage só existe no browser, não no servidor (SSR)
+  const [serviceKey, setServiceKey] = useState("");
   const [tab, setTab] = useState("dashboard");
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? sessionStorage.getItem("sk") || "" : "";
+    setServiceKey(saved);
+    setReady(true);
+  }, []);
 
   const handleLogin = (key) => {
-    sessionStorage.setItem("sk", key);
+    if (typeof window !== "undefined") sessionStorage.setItem("sk", key);
     setServiceKey(key);
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem("sk");
+    if (typeof window !== "undefined") sessionStorage.removeItem("sk");
     setServiceKey("");
   };
 
+  if (!ready) return null;
   if (!serviceKey) return <LoginScreen onLogin={handleLogin} />;
 
   return (
