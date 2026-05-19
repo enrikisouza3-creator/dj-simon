@@ -13,3 +13,41 @@ export type Lead = {
   interest: 'pack' | 'curso' | 'ambos'
   created_at?: string
 }
+
+export type Member = {
+  id: string
+  name: string
+  email: string
+  plan: 'pack' | 'curso' | 'ambos'
+  active: boolean
+  auth_id: string
+  created_at: string
+}
+
+export type Video = {
+  id: string
+  title: string
+  youtube_url: string
+  modulo: string
+  ordem: number
+  plan: 'pack' | 'curso' | 'ambos'
+  created_at: string
+}
+
+export type Plugin = {
+  id: string
+  name: string
+  description: string
+  file_url: string
+  plan: 'pack' | 'curso' | 'ambos'
+  versao?: string
+  created_at: string
+}
+
+export type Progress = {
+  id: string
+  member_id: string
+  video_id: string
+  concluido: boolean
+  assistido_em: string
+}
