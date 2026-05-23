@@ -453,17 +453,71 @@ function MembersTab({ serviceKey }) {
 
   const create = async () => {
     if (!form.name || !form.email || !form.password) return setMsg({ type: "error", text: "Preencha todos os campos" });
+    if (form.password.length < 6) return setMsg({ type: "error", text: "A senha precisa ter pelo menos 6 caracteres" });
+
     setCreating(true); setMsg(null);
+    let authUserId = null;
+
     try {
-      const authUser = await supaAuthCreate(form.email, form.password, serviceKey);
-      await supaFetch("/members", {
-        method: "POST",
-        body: JSON.stringify({ name: form.name, email: form.email, plan: form.plan, auth_id: authUser.id }),
-      }, serviceKey);
+      // Passo 1: criar usuário no Supabase Auth
+      let authUser;
+      try {
+        authUser = await supaAuthCreate(form.email, form.password, serviceKey);
+      } catch (authErr) {
+        // Erros comuns do Supabase Auth
+        const msg = authErr.message || "";
+        if (msg.includes("already been registered") || msg.includes("already exists")) {
+          throw new Error("Este email já está cadastrado no sistema de autenticação. Use outro email ou delete o usuário existente.");
+        }
+        if (msg.includes("invalid") && msg.includes("key")) {
+          throw new Error("Chave de serviço inválida. Certifique-se de usar a 'service_role key' do Supabase (não a anon key).");
+        }
+        if (msg.includes("weak_password") || msg.includes("Password")) {
+          throw new Error("Senha muito fraca. Use pelo menos 6 caracteres com letras e números.");
+        }
+        throw new Error("Erro ao criar autenticação: " + msg);
+      }
+
+      if (!authUser?.id) {
+        throw new Error("Supabase Auth não retornou um ID de usuário. Verifique a service_role key.");
+      }
+
+      authUserId = authUser.id;
+
+      // Passo 2: inserir na tabela members com o auth_id correto
+      try {
+        await supaFetch("/members", {
+          method: "POST",
+          body: JSON.stringify({
+            name: form.name,
+            email: form.email,
+            plan: form.plan,
+            auth_id: authUserId,
+            active: true,
+          }),
+        }, serviceKey);
+      } catch (dbErr) {
+        // Se falhou ao inserir na tabela, tenta desfazer a criação no Auth
+        // para não deixar usuário órfão
+        try {
+          await supaAuthDelete(authUserId, serviceKey);
+        } catch (_) {}
+        const msg = dbErr.message || "";
+        if (msg.includes("duplicate") || msg.includes("unique")) {
+          throw new Error("Este email já existe na tabela de membros.");
+        }
+        if (msg.includes("auth_id")) {
+          throw new Error("Erro ao salvar auth_id na tabela members. Verifique se a coluna auth_id existe e aceita texto.");
+        }
+        throw new Error("Erro ao salvar membro no banco: " + msg);
+      }
+
       setForm({ name: "", email: "", password: "", plan: "pack" });
-      setMsg({ type: "success", text: "Membro criado com sucesso!" });
+      setMsg({ type: "success", text: `✓ Membro "${form.name}" criado com sucesso! auth_id: ${authUserId}` });
       load();
-    } catch (e) { setMsg({ type: "error", text: e.message }); }
+    } catch (e) {
+      setMsg({ type: "error", text: e.message });
+    }
     setCreating(false);
   };
 
@@ -541,6 +595,7 @@ function MembersTab({ serviceKey }) {
                 <th style={S.th}>Email</th>
                 <th style={S.th}>Plano</th>
                 <th style={S.th}>Status</th>
+                <th style={S.th}>Auth ID</th>
                 <th style={S.th}>Criado em</th>
                 <th style={S.th}>Ações</th>
               </tr>
@@ -560,6 +615,17 @@ function MembersTab({ serviceKey }) {
                     ) : <Badge plan={m.plan} />}
                   </td>
                   <td style={S.td}><StatusDot active={m.active} />{m.active ? "Ativo" : "Inativo"}</td>
+                  <td style={S.td}>
+                    {m.auth_id ? (
+                      <span style={{ fontFamily: "monospace", fontSize: 10, color: "rgba(0,245,255,0.6)" }} title={m.auth_id}>
+                        {"✓ " + m.auth_id.slice(0, 8) + "…"}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#ef4444", fontSize: 11, fontWeight: 700 }} title="auth_id ausente — este membro não conseguirá fazer login">
+                        ✗ AUSENTE
+                      </span>
+                    )}
+                  </td>
                   <td style={S.td}>{new Date(m.created_at).toLocaleDateString("pt-BR")}</td>
                   <td style={S.td}>
                     <div style={{ display: "flex", gap: 8 }}>
