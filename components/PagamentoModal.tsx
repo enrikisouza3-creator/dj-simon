@@ -10,11 +10,15 @@ interface Props {
 
 async function registrarVenda(plano: PlanoKey, valor: number, metodo: string) {
   try {
+    const afiliadoSlug = typeof window !== "undefined" ? localStorage.getItem("ref_afiliado") : null;
+    const comissao = afiliadoSlug ? parseFloat((valor * 0.05).toFixed(2)) : null;
     await supabase.from("vendas").insert({
       plano,
       valor,
       metodo,
       status: "pendente",
+      afiliado_slug: afiliadoSlug ?? undefined,
+      comissao: comissao ?? undefined,
     });
   } catch (e) {
     // Silencioso — não bloqueia o fluxo de pagamento
