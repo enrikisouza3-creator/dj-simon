@@ -542,7 +542,24 @@ function MembersTab({ serviceKey }) {
       }
 
       setForm({ name: "", email: "", password: "", plan: "pack" });
-      setMsg({ type: "success", text: `✓ Membro "${form.name}" criado com sucesso! auth_id: ${authUserId}` });
+
+      // Envia email de boas-vindas
+      try {
+        await fetch("/api/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nome: form.name,
+            email: form.email,
+            senha: form.password,
+            plano: form.plan,
+          }),
+        });
+        setMsg({ type: "success", text: `✓ Membro "${form.name}" criado e email de boas-vindas enviado!` });
+      } catch (_) {
+        setMsg({ type: "success", text: `✓ Membro "${form.name}" criado! (email não enviado — verifique a variável RESEND_API_KEY)` });
+      }
+
       load();
     } catch (e) {
       setMsg({ type: "error", text: e.message });
