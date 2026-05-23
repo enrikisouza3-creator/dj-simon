@@ -456,7 +456,7 @@ function DashboardTab({ serviceKey }) {
 function MembersTab({ serviceKey }) {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ name: "", email: "", password: "", plan: "pack" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", plan: "pack", duracao: "30" });
   const [msg, setMsg] = useState(null);
   const [creating, setCreating] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -507,6 +507,10 @@ function MembersTab({ serviceKey }) {
 
       // Passo 2: inserir na tabela members com o auth_id correto
       try {
+        const expiresAt = form.duracao !== "never"
+          ? new Date(Date.now() + parseInt(form.duracao) * 24 * 60 * 60 * 1000).toISOString()
+          : null;
+
         await supaFetch("/members", {
           method: "POST",
           body: JSON.stringify({
@@ -515,6 +519,7 @@ function MembersTab({ serviceKey }) {
             plan: form.plan,
             auth_id: authUserId,
             active: true,
+            expires_at: expiresAt,
           }),
         }, serviceKey);
       } catch (dbErr) {
@@ -533,7 +538,7 @@ function MembersTab({ serviceKey }) {
 
       // ✅ FIX: salva os dados ANTES de limpar o form
       const { name: membroNome, email: membroEmail, password: membroSenha, plan: membroPlano } = form;
-      setForm({ name: "", email: "", password: "", plan: "pack" });
+      setForm({ name: "", email: "", password: "", plan: "pack", duracao: "30" });
 
       // Envia email de boas-vindas com variáveis locais (não form.*)
       try {
@@ -611,6 +616,17 @@ function MembersTab({ serviceKey }) {
               <option value="ambos">Pack + Curso</option>
             </select>
           </div>
+          <div>
+            <label style={S.label}>Duração do Acesso</label>
+            <select style={S.select} value={form.duracao} onChange={(e) => setForm({ ...form, duracao: e.target.value })}>
+              <option value="30">30 dias</option>
+              <option value="60">60 dias</option>
+              <option value="90">90 dias</option>
+              <option value="180">6 meses</option>
+              <option value="365">1 ano</option>
+              <option value="never">Sem expiração</option>
+            </select>
+          </div>
         </div>
         <div style={{ marginTop: 20, textAlign: "right" }}>
           <button style={S.btn("primary")} onClick={create} disabled={creating}>
@@ -634,6 +650,7 @@ function MembersTab({ serviceKey }) {
                 <th style={S.th}>Plano</th>
                 <th style={S.th}>Status</th>
                 <th style={S.th}>Auth ID</th>
+                <th style={S.th}>Expira em</th>
                 <th style={S.th}>Criado em</th>
                 <th style={S.th}>Ações</th>
               </tr>
@@ -663,6 +680,24 @@ function MembersTab({ serviceKey }) {
                         ✗ AUSENTE
                       </span>
                     )}
+                  </td>
+                  <td style={S.td}>
+                    {m.expires_at ? (() => {
+                      const exp = new Date(m.expires_at);
+                      const now = new Date();
+                      const diff = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+                      const expirado = exp < now;
+                      const proximo = diff <= 7 && !expirado;
+                      return (
+                        <span style={{
+                          fontSize: 11, fontFamily: "'Space Mono', monospace",
+                          color: expirado ? "#ef4444" : proximo ? "#f59e0b" : "rgba(255,255,255,0.6)",
+                          fontWeight: expirado || proximo ? 700 : 400,
+                        }}>
+                          {expirado ? "✗ EXPIRADO" : proximo ? `⚠ ${diff}d` : exp.toLocaleDateString("pt-BR")}
+                        </span>
+                      );
+                    })() : <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>—</span>}
                   </td>
                   <td style={S.td}>{new Date(m.created_at).toLocaleDateString("pt-BR")}</td>
                   <td style={S.td}>
