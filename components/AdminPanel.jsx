@@ -881,10 +881,195 @@ function VideosTab({ serviceKey }) {
   );
 }
 
+
+// ─── Vendas ───────────────────────────────────────────────────────────────────
+const PLANOS_LABEL = { pack: "Pack Pro", curso: "Curso Completo", ambos: "Combo Completo" };
+const PLANOS_PRECO = { pack: 97, curso: 197, ambos: 247 };
+const STATUS_LABEL = { pendente: "Pendente", pago: "Pago", cancelado: "Cancelado" };
+const STATUS_COLOR = { pendente: "#f59e0b", pago: "#4ade80", cancelado: "#ef4444" };
+
+function VendasTab({ serviceKey }) {
+  const [vendas, setVendas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState(null);
+  const [filtro, setFiltro] = useState("todos");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await supaFetch("/vendas?order=created_at.desc", {}, serviceKey);
+      setVendas(data);
+    } catch (e) {
+      // Tabela ainda não existe — mostra orientação
+      if (e.message?.includes("relation") || e.message?.includes("does not exist") || e.message?.includes("404")) {
+        setMsg({ type: "warn", text: "Tabela 'vendas' não encontrada no Supabase. Veja as instruções abaixo para criá-la." });
+      } else {
+        setMsg({ type: "error", text: e.message });
+      }
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const atualizarStatus = async (id, status) => {
+    try {
+      await supaFetch(`/vendas?id=eq.${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }, serviceKey);
+      load();
+    } catch (e) { setMsg({ type: "error", text: e.message }); }
+  };
+
+  const vendasFiltradas = filtro === "todos" ? vendas : vendas.filter(v => v.status === filtro);
+
+  // Métricas
+  const totalFaturado = vendas.filter(v => v.status === "pago").reduce((s, v) => s + (v.valor || 0), 0);
+  const totalPendente = vendas.filter(v => v.status === "pendente").reduce((s, v) => s + (v.valor || 0), 0);
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const vendasHoje = vendas.filter(v => new Date(v.created_at) >= hoje).length;
+  const vendasPagas = vendas.filter(v => v.status === "pago").length;
+
+  return (
+    <div>
+      <div style={S.pageTitle}>Vendas</div>
+      <div style={S.subtitle}>// acompanhe pedidos e faturamento</div>
+
+      {msg && (
+        <div style={{
+          ...S.alert(msg.type === "warn" ? "error" : msg.type),
+          background: msg.type === "warn" ? "rgba(245,158,11,0.1)" : undefined,
+          borderColor: msg.type === "warn" ? "rgba(245,158,11,0.3)" : undefined,
+          color: msg.type === "warn" ? "#f59e0b" : undefined,
+        }}>
+          {msg.text}
+          {msg.type === "warn" && (
+            <div style={{ marginTop: 12, fontSize: 11, fontFamily: "'Space Mono', monospace", lineHeight: 1.8, color: "rgba(245,158,11,0.8)" }}>
+              Execute esse SQL no Supabase → SQL Editor:<br />
+              <code style={{ display: "block", marginTop: 8, background: "rgba(0,0,0,0.3)", padding: "10px 12px", borderRadius: 6, color: "#fff", fontSize: 10 }}>
+                {`CREATE TABLE vendas (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  nome text,
+  email text,
+  plano text,
+  valor numeric,
+  status text DEFAULT 'pendente',
+  metodo text,
+  mp_link text,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE vendas ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role full access" ON vendas USING (true) WITH CHECK (true);`}
+              </code>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cards de métricas */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 24 }}>
+        {[
+          { label: "FATURADO (PAGO)", valor: `R$ ${totalFaturado.toFixed(2).replace(".", ",")}`, color: "#4ade80" },
+          { label: "PENDENTE", valor: `R$ ${totalPendente.toFixed(2).replace(".", ",")}`, color: "#f59e0b" },
+          { label: "VENDAS PAGAS", valor: vendasPagas, color: C.cyan },
+          { label: "PEDIDOS HOJE", valor: vendasHoje, color: C.white },
+        ].map(m => (
+          <div key={m.label} style={{ ...S.card, padding: 20, borderTop: `2px solid ${m.color}` }}>
+            <div style={{ fontFamily: "'Bebas Neue', cursive", fontSize: 28, color: m.color }}>{m.valor}</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: C.muted2, letterSpacing: 2, marginTop: 4 }}>{m.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        {["todos", "pendente", "pago", "cancelado"].map(f => (
+          <button
+            key={f}
+            onClick={() => setFiltro(f)}
+            style={{
+              ...S.btn(filtro === f ? "primary" : ""),
+              fontSize: 11, padding: "6px 14px",
+              letterSpacing: 1,
+            }}
+          >
+            {f.toUpperCase()} {f !== "todos" && `(${vendas.filter(v => v.status === f).length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Tabela */}
+      <div style={S.card}>
+        <div style={S.cardTitle}>📋 Pedidos ({vendasFiltradas.length})</div>
+        {loading ? (
+          <div style={{ color: C.muted, fontSize: 13 }}>Carregando...</div>
+        ) : vendasFiltradas.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 13 }}>Nenhum pedido ainda.</div>
+        ) : (
+          <table style={S.table}>
+            <thead>
+              <tr>
+                <th style={S.th}>Data</th>
+                <th style={S.th}>Nome</th>
+                <th style={S.th}>Email</th>
+                <th style={S.th}>Plano</th>
+                <th style={S.th}>Valor</th>
+                <th style={S.th}>Método</th>
+                <th style={S.th}>Status</th>
+                <th style={S.th}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vendasFiltradas.map(v => (
+                <tr key={v.id}>
+                  <td style={S.td}>{new Date(v.created_at).toLocaleDateString("pt-BR")}</td>
+                  <td style={S.td}>{v.nome || "—"}</td>
+                  <td style={S.td}>{v.email || "—"}</td>
+                  <td style={S.td}>{PLANOS_LABEL[v.plano] || v.plano}</td>
+                  <td style={S.td}>R$ {Number(v.valor || 0).toFixed(2).replace(".", ",")}</td>
+                  <td style={S.td}>{v.metodo === "pix" ? "⚡ PIX" : v.metodo === "mp" ? "💳 MP" : "—"}</td>
+                  <td style={S.td}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 4,
+                      fontFamily: "'Space Mono', monospace", letterSpacing: 1,
+                      background: `${STATUS_COLOR[v.status]}20`,
+                      color: STATUS_COLOR[v.status] || C.muted,
+                      border: `1px solid ${STATUS_COLOR[v.status] || C.muted}40`,
+                    }}>
+                      {STATUS_LABEL[v.status] || v.status}
+                    </span>
+                  </td>
+                  <td style={S.td}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {v.status !== "pago" && (
+                        <button style={{ ...S.btn("primary"), fontSize: 10, padding: "4px 10px" }} onClick={() => atualizarStatus(v.id, "pago")}>
+                          ✓ Pago
+                        </button>
+                      )}
+                      {v.status !== "cancelado" && (
+                        <button style={{ ...S.btn("danger"), fontSize: 10, padding: "4px 10px" }} onClick={() => atualizarStatus(v.id, "cancelado")}>
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: "▦" },
   { id: "members", label: "Membros", icon: "◎" },
+  { id: "vendas", label: "Vendas", icon: "💰" },
   { id: "plugins", label: "Plugins", icon: "⬡" },
   { id: "videos", label: "Vídeos", icon: "▷" },
 ];
@@ -952,6 +1137,7 @@ export default function AdminPanel() {
           <div style={S.main}>
             {tab === "dashboard" && <DashboardTab serviceKey={serviceKey} />}
             {tab === "members" && <MembersTab serviceKey={serviceKey} />}
+            {tab === "vendas" && <VendasTab serviceKey={serviceKey} />}
             {tab === "plugins" && <PluginsTab serviceKey={serviceKey} />}
             {tab === "videos" && <VideosTab serviceKey={serviceKey} />}
           </div>
