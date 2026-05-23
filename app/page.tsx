@@ -155,10 +155,86 @@ function LeadForm({ plan }: { plan: "pack" | "curso" | "ambos" }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// ─── Nomes e cidades para notificações fake ───────────────────────────────────
+const COMPRADORES = [
+  { nome: "Lucas M.", cidade: "São Paulo" },
+  { nome: "Rafaela S.", cidade: "Curitiba" },
+  { nome: "Pedro H.", cidade: "Rio de Janeiro" },
+  { nome: "Thiago B.", cidade: "Belo Horizonte" },
+  { nome: "Amanda C.", cidade: "Fortaleza" },
+  { nome: "Gabriel R.", cidade: "Porto Alegre" },
+  { nome: "Fernanda L.", cidade: "Recife" },
+  { nome: "Diego A.", cidade: "Salvador" },
+  { nome: "Mariana T.", cidade: "Brasília" },
+  { nome: "Bruno K.", cidade: "Florianópolis" },
+  { nome: "Juliana P.", cidade: "Goiânia" },
+  { nome: "Rodrigo N.", cidade: "Manaus" },
+];
+const PLANOS_FAKE = ["Pack Completo", "Curso DJ", "Combo Pack + Curso"];
+
 export default function Home() {
   const [activePlan, setActivePlan] = useState<"pack" | "curso" | "ambos">("ambos");
   const [modalPlano, setModalPlano] = useState<PlanoKey | null>(null);
   const [scrolled, setScrolled] = useState(false);
+
+  // ── Urgência: contador regressivo 24h por sessão ──────────────────────────
+  const [timeLeft, setTimeLeft] = useState(0);
+  useEffect(() => {
+    const KEY = "djs_deadline";
+    let deadline = parseInt(sessionStorage.getItem(KEY) || "0");
+    if (!deadline || deadline < Date.now()) {
+      deadline = Date.now() + 24 * 60 * 60 * 1000;
+      sessionStorage.setItem(KEY, String(deadline));
+    }
+    const tick = () => setTimeLeft(Math.max(0, deadline - Date.now()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const fmtTime = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600).toString().padStart(2, "0");
+    const m = Math.floor((s % 3600) / 60).toString().padStart(2, "0");
+    const sec = (s % 60).toString().padStart(2, "0");
+    return { h, m, sec };
+  };
+  const { h, m, sec } = fmtTime(timeLeft);
+
+  // ── Urgência: vagas restantes (diminui com o tempo) ───────────────────────
+  const [vagas, setVagas] = useState(7);
+  useEffect(() => {
+    const KEY = "djs_vagas";
+    let v = parseInt(localStorage.getItem(KEY) || "0");
+    if (!v || v > 7) { v = Math.floor(Math.random() * 3) + 5; } // 5-7
+    setVagas(v);
+    // Diminui 1 vaga aleatoriamente entre 8-20 min
+    const delay = (Math.floor(Math.random() * 12) + 8) * 60 * 1000;
+    const id = setTimeout(() => {
+      const novo = Math.max(1, v - 1);
+      localStorage.setItem(KEY, String(novo));
+      setVagas(novo);
+    }, delay);
+    return () => clearTimeout(id);
+  }, []);
+
+  // ── Urgência: notificações de compra ─────────────────────────────────────
+  const [notif, setNotif] = useState<{ nome: string; cidade: string; plano: string } | null>(null);
+  useEffect(() => {
+    let idx = 0;
+    const mostrar = () => {
+      const c = COMPRADORES[idx % COMPRADORES.length];
+      const p = PLANOS_FAKE[Math.floor(Math.random() * PLANOS_FAKE.length)];
+      setNotif({ nome: c.nome, cidade: c.cidade, plano: p });
+      idx++;
+      setTimeout(() => setNotif(null), 4000);
+    };
+    // Primeira notificação após 8s
+    const first = setTimeout(mostrar, 8000);
+    // Depois a cada 25-45s
+    const loop = setInterval(mostrar, (Math.floor(Math.random() * 20) + 25) * 1000);
+    return () => { clearTimeout(first); clearInterval(loop); };
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -225,13 +301,77 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#020408]">
+
+      {/* ── BARRA DE URGÊNCIA NO TOPO ────────────────────────────────────── */}
+      <div style={{
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
+        background: "linear-gradient(90deg, #dc2626, #b91c1c)",
+        padding: "8px 16px",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        gap: 12, flexWrap: "wrap",
+        boxShadow: "0 2px 20px rgba(220,38,38,0.5)",
+      }}>
+        <span style={{ color: "#fff", fontFamily: "'Space Mono', monospace", fontSize: 11, letterSpacing: 2 }}>
+          🔥 OFERTA ESPECIAL TERMINA EM:
+        </span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {[h, m, sec].map((v, i) => (
+            <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{
+                background: "#000", color: "#ef4444", fontFamily: "'Bebas Neue', cursive",
+                fontSize: 22, padding: "2px 8px", borderRadius: 4, minWidth: 36, textAlign: "center",
+                boxShadow: "0 0 8px rgba(239,68,68,0.6)",
+              }}>{v}</span>
+              {i < 2 && <span style={{ color: "#fff", fontSize: 18, fontWeight: 700 }}>:</span>}
+            </span>
+          ))}
+        </div>
+        <span style={{ color: "#fca5a5", fontFamily: "'Space Mono', monospace", fontSize: 10, letterSpacing: 1 }}>
+          · APENAS {vagas} VAGAS RESTANTES
+        </span>
+      </div>
+
+      {/* ── NOTIFICAÇÃO DE COMPRA (canto inferior esquerdo) ─────────────── */}
+      <div style={{
+        position: "fixed", bottom: 24, left: 20, zIndex: 9998,
+        transition: "all 0.5s cubic-bezier(0.34,1.56,0.64,1)",
+        transform: notif ? "translateX(0) scale(1)" : "translateX(-140%) scale(0.8)",
+        opacity: notif ? 1 : 0,
+        pointerEvents: "none",
+      }}>
+        <div style={{
+          background: "#0d1117", border: "1px solid rgba(0,245,255,0.25)",
+          borderRadius: 12, padding: "12px 16px", maxWidth: 280,
+          display: "flex", alignItems: "center", gap: 12,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,245,255,0.1)",
+        }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+            background: "linear-gradient(135deg, #00f5ff, #0066ff)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18,
+          }}>🎧</div>
+          <div>
+            <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, lineHeight: 1.3 }}>
+              {notif?.nome} de {notif?.cidade}
+            </div>
+            <div style={{ color: "rgba(0,245,255,0.8)", fontSize: 11, fontFamily: "'Space Mono', monospace", marginTop: 2 }}>
+              acabou de comprar o {notif?.plano}
+            </div>
+            <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 2 }}>
+              agora mesmo · via PIX
+            </div>
+          </div>
+        </div>
+      </div>
       {/* NAV */}
       <nav
-        className={`fixed top-0 w-full z-50 transition-all duration-300 ${
+        className={`fixed w-full z-50 transition-all duration-300 ${
           scrolled
             ? "bg-[#020408]/95 backdrop-blur-md border-b border-cyan-400/10"
             : "bg-transparent"
         }`}
+        style={{ top: 42 }}
       >
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <span className="font-display text-2xl tracking-widest text-white">
@@ -527,6 +667,23 @@ export default function Home() {
             <p className="mt-4 text-white/60">
               Escolha o plano ideal e garanta sua vaga agora.
             </p>
+            {/* Barra de escassez */}
+            <div className="mt-6 inline-flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2 text-sm font-mono text-red-400">
+                <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                Apenas <strong>{vagas} vagas</strong> disponíveis neste preço
+              </div>
+              <div style={{ width: 240, height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 99 }}>
+                <div style={{
+                  width: `${((7 - vagas) / 7) * 100 + 14}%`,
+                  height: "100%", borderRadius: 99,
+                  background: "linear-gradient(90deg, #ef4444, #dc2626)",
+                  boxShadow: "0 0 8px rgba(239,68,68,0.6)",
+                  transition: "width 1s ease",
+                }} />
+              </div>
+              <div className="text-xs text-white/30 font-mono">{100 - Math.round(((7 - vagas) / 7) * 100 + 14)}% das vagas já foram preenchidas</div>
+            </div>
           </div>
 
           {/* Plan selector */}
