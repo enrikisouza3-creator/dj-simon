@@ -1069,12 +1069,179 @@ CREATE POLICY "service_role full access" ON vendas USING (true) WITH CHECK (true
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
+// ─── Afiliados ────────────────────────────────────────────────────────────────
+function AfiliadosTab({ serviceKey }) {
+  const [afiliados, setAfiliados] = useState([]);
+  const [vendas, setVendas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ nome: "", email: "", pix: "", slug: "" });
+  const [msg, setMsg] = useState(null);
+  const [creating, setCreating] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [a, v] = await Promise.all([
+        supaFetch("/afiliados?order=created_at.desc", {}, serviceKey),
+        supaFetch("/vendas?select=afiliado_slug,comissao,status,valor", {}, serviceKey).catch(() => []),
+      ]);
+      setAfiliados(Array.isArray(a) ? a : []);
+      setVendas(Array.isArray(v) ? v : []);
+    } catch (e) { setMsg({ type: "error", text: e.message }); }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    if (!form.nome || !form.email || !form.slug) return setMsg({ type: "error", text: "Nome, email e slug são obrigatórios" });
+    if (!/^[a-z0-9_-]+$/.test(form.slug)) return setMsg({ type: "error", text: "Slug só pode ter letras minúsculas, números, - e _" });
+    setCreating(true); setMsg(null);
+    try {
+      await supaFetch("/afiliados", { method: "POST", body: JSON.stringify(form) }, serviceKey);
+      const { nome } = form;
+      setForm({ nome: "", email: "", pix: "", slug: "" });
+      setMsg({ type: "success", text: `Afiliado "${nome}" criado!` });
+      load();
+    } catch (e) {
+      setMsg({ type: "error", text: e.message.includes("unique") ? "Esse slug já está em uso." : e.message });
+    }
+    setCreating(false);
+  };
+
+  const toggleAtivo = async (a) => {
+    try {
+      await supaFetch(`/afiliados?id=eq.${a.id}`, { method: "PATCH", body: JSON.stringify({ ativo: !a.ativo }) }, serviceKey);
+      load();
+    } catch (e) { setMsg({ type: "error", text: e.message }); }
+  };
+
+  const del = async (a) => {
+    if (!confirm(`Deletar afiliado ${a.nome}?`)) return;
+    try {
+      await supaFetch(`/afiliados?id=eq.${a.id}`, { method: "DELETE" }, serviceKey);
+      load();
+    } catch (e) { setMsg({ type: "error", text: e.message }); }
+  };
+
+  const getStats = (slug) => {
+    const vendasAfiliado = vendas.filter(v => v.afiliado_slug === slug);
+    const pagas = vendasAfiliado.filter(v => v.status === "pago");
+    const totalComissao = pagas.reduce((s, v) => s + (v.comissao || 0), 0);
+    return { total: vendasAfiliado.length, pagas: pagas.length, comissao: totalComissao };
+  };
+
+  const BASE_URL = "https://dj-simon.vercel.app";
+
+  return (
+    <div>
+      <div style={S.pageTitle}>Afiliados</div>
+      <div style={S.subtitle}>// gerencie afiliados e comissões (5%)</div>
+      {msg && <div style={S.alert(msg.type)}>{msg.text}</div>}
+
+      <div style={S.card}>
+        <div style={S.cardTitle}>⚡ Novo Afiliado</div>
+        <div style={S.grid2}>
+          <div>
+            <label style={S.label}>Nome</label>
+            <input style={S.input} placeholder="Nome do afiliado" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+          </div>
+          <div>
+            <label style={S.label}>Email</label>
+            <input style={S.input} placeholder="email@exemplo.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </div>
+          <div>
+            <label style={S.label}>Slug (link único)</label>
+            <input style={S.input} placeholder="ex: joao123" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") })} />
+          </div>
+          <div>
+            <label style={S.label}>PIX (para pagamento)</label>
+            <input style={S.input} placeholder="CPF, email ou chave PIX" value={form.pix} onChange={(e) => setForm({ ...form, pix: e.target.value })} />
+          </div>
+        </div>
+        {form.slug && (
+          <div style={{ marginTop: 12, padding: "8px 12px", background: "rgba(0,245,255,0.05)", border: "1px solid rgba(0,245,255,0.15)", fontFamily: "'Space Mono', monospace", fontSize: 11, color: C.cyan }}>
+            🔗 Link: {BASE_URL}/?ref={form.slug}
+          </div>
+        )}
+        <div style={{ marginTop: 20, textAlign: "right" }}>
+          <button style={S.btn("primary")} onClick={create} disabled={creating}>
+            {creating ? "CRIANDO..." : "+ CRIAR AFILIADO"}
+          </button>
+        </div>
+      </div>
+
+      <div style={S.card}>
+        <div style={S.cardTitle}>◎ Afiliados ({afiliados.length})</div>
+        {loading ? <div style={{ color: C.muted, fontSize: 13 }}>Carregando...</div> :
+         afiliados.length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Nenhum afiliado ainda.</div> : (
+          <table style={S.table}>
+            <thead>
+              <tr>
+                <th style={S.th}>Nome</th>
+                <th style={S.th}>Link</th>
+                <th style={S.th}>Vendas</th>
+                <th style={S.th}>Comissão a pagar</th>
+                <th style={S.th}>PIX</th>
+                <th style={S.th}>Status</th>
+                <th style={S.th}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {afiliados.map((a) => {
+                const stats = getStats(a.slug);
+                return (
+                  <tr key={a.id}>
+                    <td style={S.td}>
+                      <div style={{ fontWeight: 700, color: C.white }}>{a.nome}</div>
+                      <div style={{ fontSize: 11, color: C.muted }}>{a.email}</div>
+                    </td>
+                    <td style={S.td}>
+                      <div style={{ fontFamily: "monospace", fontSize: 11, color: C.cyan }}>/?ref={a.slug}</div>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(`${BASE_URL}/?ref=${a.slug}`)}
+                        style={{ ...S.btn(), fontSize: 9, padding: "2px 8px", marginTop: 4 }}
+                      >COPIAR</button>
+                    </td>
+                    <td style={S.td}>
+                      <div style={{ color: C.white }}>{stats.total} total</div>
+                      <div style={{ fontSize: 11, color: C.green }}>{stats.pagas} pagas</div>
+                    </td>
+                    <td style={S.td}>
+                      <div style={{ fontFamily: "'Bebas Neue', cursive", fontSize: 20, color: stats.comissao > 0 ? C.amber : C.muted }}>
+                        R$ {stats.comissao.toFixed(2).replace(".", ",")}
+                      </div>
+                    </td>
+                    <td style={S.td}>
+                      <div style={{ fontFamily: "monospace", fontSize: 11, color: C.muted }}>{a.pix || "—"}</div>
+                    </td>
+                    <td style={S.td}>
+                      <StatusDot active={a.ativo} />{a.ativo ? "Ativo" : "Inativo"}
+                    </td>
+                    <td style={S.td}>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button style={S.btn()} onClick={() => toggleAtivo(a)}>{a.ativo ? "Desativar" : "Ativar"}</button>
+                        <button style={S.btn("danger")} onClick={() => del(a)}>Deletar</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: "▦" },
   { id: "members", label: "Membros", icon: "◎" },
   { id: "vendas", label: "Vendas", icon: "◈" },
   { id: "plugins", label: "Plugins", icon: "⬡" },
   { id: "videos", label: "Vídeos", icon: "▷" },
+  { id: "afiliados", label: "Afiliados", icon: "⇄" },
 ];
 
 export default function AdminPanel() {
@@ -1143,6 +1310,7 @@ export default function AdminPanel() {
             {tab === "vendas" && <VendasTab serviceKey={serviceKey} />}
             {tab === "plugins" && <PluginsTab serviceKey={serviceKey} />}
             {tab === "videos" && <VideosTab serviceKey={serviceKey} />}
+            {tab === "afiliados" && <AfiliadosTab serviceKey={serviceKey} />}
           </div>
         </div>
       </div>
