@@ -22,6 +22,7 @@ export type Member = {
   active: boolean
   auth_id: string
   created_at: string
+  expires_at: string | null
 }
 
 export type Video = {
