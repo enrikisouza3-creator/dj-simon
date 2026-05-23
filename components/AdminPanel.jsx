@@ -255,9 +255,38 @@ function LoginScreen({ onLogin }) {
   const [key, setKey] = useState("");
   const [err, setErr] = useState("");
 
-  const handle = () => {
+  const handle = async () => {
     if (!key.trim()) return setErr("Insira a service role key");
-    if (!key.startsWith("eyJ")) return setErr("Key inválida");
+    if (!key.startsWith("eyJ")) return setErr("Key inválida — deve começar com eyJ");
+
+    // Verifica se é realmente service_role decodificando o JWT
+    try {
+      const payload = JSON.parse(atob(key.split(".")[1]));
+      if (payload.role !== "service_role") {
+        return setErr(
+          "Você inseriu a anon key, não a service_role key. " +
+          "No Supabase vá em Settings → API → Project API keys → service_role (clique em Reveal para copiar)."
+        );
+      }
+    } catch (_) {
+      return setErr("Token inválido — verifique se copiou a chave completa sem espaços.");
+    }
+
+    // Testa a key fazendo uma chamada real ao Supabase
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?page=1&per_page=1`, {
+        headers: { apikey: key.trim(), Authorization: `Bearer ${key.trim()}` },
+      });
+      if (res.status === 401 || res.status === 403) {
+        return setErr("Chave recusada pelo Supabase (401/403). Copie novamente a service_role key do painel.");
+      }
+      if (!res.ok && res.status !== 422) {
+        return setErr(`Erro ao validar chave: status ${res.status}`);
+      }
+    } catch (_) {
+      return setErr("Não foi possível conectar ao Supabase. Verifique sua conexão.");
+    }
+
     onLogin(key.trim());
   };
 
