@@ -147,7 +147,7 @@ function LeadForm({ plan }: { plan: "pack" | "curso" | "ambos" }) {
         </p>
       )}
       <p className="text-white/30 text-xs text-center font-mono">
-        🔒 Seus dados estão 100% seguros. Sem spam.
+         Seus dados estão 100% seguros. Sem spam.
       </p>
     </form>
   );
@@ -272,7 +272,7 @@ export default function Home() {
 
         <div className="relative z-10 text-center max-w-4xl mx-auto">
           <div className="tag-cyan inline-block mb-6">
-            ⚡ ACESSO EXCLUSIVO — VAGAS LIMITADAS
+           ACESSO EXCLUSIVO — VAGAS LIMITADAS
           </div>
 
           <h1 className="font-display text-6xl md:text-8xl lg:text-9xl leading-none mb-4">
@@ -422,7 +422,7 @@ export default function Home() {
       <section id="curso" className="py-24 px-6 grid-bg">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <div className="tag-cyan inline-block mb-4">🎧 CURSO DE DJ</div>
+            <div className="tag-cyan inline-block mb-4"> CURSO DE DJ</div>
             <h2 className="font-display text-5xl md:text-7xl text-white">
               DO ZERO AO{" "}
               <span className="text-cyan-400 glow-cyan">PALCO</span>
@@ -481,7 +481,7 @@ export default function Home() {
       <section id="depoimentos" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <div className="tag-cyan inline-block mb-4">⭐ DEPOIMENTOS</div>
+            <div className="tag-cyan inline-block mb-4"> DEPOIMENTOS</div>
             <h2 className="font-display text-5xl md:text-7xl text-white">
               QUEM JÁ{" "}
               <span className="text-cyan-400 glow-cyan">TRANSFORMOU</span>
@@ -510,7 +510,7 @@ export default function Home() {
       <section id="inscricao" className="py-24 px-6 grid-bg">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <div className="tag-cyan inline-block mb-4">🚀 ESCOLHA SEU PLANO</div>
+            <div className="tag-cyan inline-block mb-4"> ESCOLHA SEU PLANO</div>
             <h2 className="font-display text-5xl md:text-7xl text-white">
               INVISTA NO SEU{" "}
               <span className="text-cyan-400 glow-cyan">FUTURO</span>
@@ -545,7 +545,7 @@ export default function Home() {
             <div className="card-dark p-8 rounded-none glow-box text-center">
               {activePlan === "pack" && (
                 <>
-                  <div className="tag-cyan inline-block mb-4">🎵 PACK PRO</div>
+                  <div className="tag-cyan inline-block mb-4"> PACK PRO</div>
                   <div className="font-display text-7xl text-white mb-1">R$97</div>
                   <p className="text-white/40 text-sm mb-6 font-mono">acesso vitalício</p>
                   <ul className="text-left space-y-3 mb-8">
@@ -575,7 +575,7 @@ export default function Home() {
               )}
               {activePlan === "ambos" && (
                 <>
-                  <div className="tag-cyan inline-block mb-4">⚡ COMBO COMPLETO</div>
+                  <div className="tag-cyan inline-block mb-4"> COMBO COMPLETO</div>
                   <div className="flex items-center justify-center gap-3 mb-1">
                     <span className="font-display text-3xl text-white/30 line-through">R$294</span>
                     <div className="font-display text-7xl text-cyan-400 glow-cyan">R$247</div>
@@ -622,10 +622,10 @@ export default function Home() {
                   onClick={() => setModalPlano(activePlan)}
                   className="btn-cta w-full text-lg py-4"
                 >
-                  ⚡ QUERO GARANTIR AGORA
+                   QUERO GARANTIR AGORA
                 </button>
                 <p className="text-center text-white/30 text-xs font-mono">
-                  🛡️ 7 dias de garantia incondicional
+                  7 dias de garantia incondicional
                 </p>
               </div>
             </div>
