@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import PagamentoModal from "@/components/PagamentoModal";
+import { PlanoKey } from "@/lib/pagamento";
 import {
   Play,
   CheckCircle2,
@@ -155,6 +157,7 @@ function LeadForm({ plan }: { plan: "pack" | "curso" | "ambos" }) {
 
 export default function Home() {
   const [activePlan, setActivePlan] = useState<"pack" | "curso" | "ambos">("ambos");
+  const [modalPlano, setModalPlano] = useState<PlanoKey | null>(null);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -596,15 +599,35 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Form */}
-            <div className="card-dark p-8 rounded-none">
-              <h3 className="font-display text-3xl text-white mb-2">
-                GARANTA SUA VAGA
-              </h3>
-              <p className="text-white/50 text-sm mb-6">
-                Preencha seus dados e um de nossos especialistas entrará em contato.
-              </p>
-              <LeadForm plan={activePlan} />
+            {/* Buy */}
+            <div className="card-dark p-8 rounded-none flex flex-col justify-between">
+              <div>
+                <h3 className="font-display text-3xl text-white mb-2">
+                  GARANTA SUA VAGA
+                </h3>
+                <p className="text-white/50 text-sm mb-6">
+                  Pagamento 100% seguro via PIX ou cartão. Acesso liberado em minutos.
+                </p>
+                <ul className="space-y-3 mb-8">
+                  {["Acesso imediato após pagamento", "7 dias de garantia incondicional", "Suporte direto no WhatsApp", "Pagamento via PIX ou cartão"].map(item => (
+                    <li key={item} className="flex gap-2 text-white/70 text-sm">
+                      <CheckCircle2 className="text-cyan-400 w-4 h-4 mt-0.5 shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="space-y-3">
+                <button
+                  onClick={() => setModalPlano(activePlan)}
+                  className="btn-cta w-full text-lg py-4"
+                >
+                  ⚡ QUERO GARANTIR AGORA
+                </button>
+                <p className="text-center text-white/30 text-xs font-mono">
+                  🛡️ 7 dias de garantia incondicional
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -673,6 +696,12 @@ export default function Home() {
           </p>
         </div>
       </footer>
+      {modalPlano && (
+        <PagamentoModal
+          plano={modalPlano}
+          onClose={() => setModalPlano(null)}
+        />
+      )}
     </main>
   );
 }
