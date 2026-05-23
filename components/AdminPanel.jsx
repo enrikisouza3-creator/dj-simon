@@ -259,7 +259,6 @@ function LoginScreen({ onLogin }) {
     if (!key.trim()) return setErr("Insira a service role key");
     if (!key.startsWith("eyJ")) return setErr("Key inválida — deve começar com eyJ");
 
-    // Verifica se é realmente service_role decodificando o JWT
     try {
       const payload = JSON.parse(atob(key.split(".")[1]));
       if (payload.role !== "service_role") {
@@ -272,7 +271,6 @@ function LoginScreen({ onLogin }) {
       return setErr("Token inválido — verifique se copiou a chave completa sem espaços.");
     }
 
-    // Testa a key fazendo uma chamada real ao Supabase
     try {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?page=1&per_page=1`, {
         headers: { apikey: key.trim(), Authorization: `Bearer ${key.trim()}` },
@@ -405,7 +403,6 @@ function DashboardTab({ serviceKey }) {
       <div style={S.pageTitle}>Dashboard</div>
       <div style={S.subtitle}>// visão geral da plataforma</div>
 
-      {/* Row 1 — Membros */}
       <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: C.cyan, letterSpacing: 3, marginBottom: 12, textTransform: "uppercase" }}>
         ▸ Membros
       </div>
@@ -416,7 +413,6 @@ function DashboardTab({ serviceKey }) {
         <StatCard num={stats.membros7dias} label="Últimos 7 dias" color={C.purple} />
       </div>
 
-      {/* Row 2 — Planos */}
       <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: C.cyan, letterSpacing: 3, marginBottom: 12, textTransform: "uppercase" }}>
         ▸ Planos
       </div>
@@ -426,7 +422,6 @@ function DashboardTab({ serviceKey }) {
         <StatCard num={stats.ambos} label="Pack + Curso" color={C.purple} />
       </div>
 
-      {/* Row 3 — Atividade */}
       <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: C.cyan, letterSpacing: 3, marginBottom: 12, textTransform: "uppercase" }}>
         ▸ Atividade
       </div>
@@ -437,10 +432,8 @@ function DashboardTab({ serviceKey }) {
         <StatCard num={stats.videos} label="Vídeos disponíveis" color={C.purple} />
       </div>
 
-      {/* Divider */}
       <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.cyan}, transparent)`, margin: "8px 0 24px" }} />
 
-      {/* Resumo */}
       <div style={{ ...S.card, display: "flex", gap: 32, alignItems: "center" }}>
         <WaveBar />
         <div>
@@ -493,7 +486,6 @@ function MembersTab({ serviceKey }) {
       try {
         authUser = await supaAuthCreate(form.email, form.password, serviceKey);
       } catch (authErr) {
-        // Erros comuns do Supabase Auth
         const msg = authErr.message || "";
         if (msg.includes("already been registered") || msg.includes("already exists")) {
           throw new Error("Este email já está cadastrado no sistema de autenticação. Use outro email ou delete o usuário existente.");
@@ -526,8 +518,6 @@ function MembersTab({ serviceKey }) {
           }),
         }, serviceKey);
       } catch (dbErr) {
-        // Se falhou ao inserir na tabela, tenta desfazer a criação no Auth
-        // para não deixar usuário órfão
         try {
           await supaAuthDelete(authUserId, serviceKey);
         } catch (_) {}
@@ -541,23 +531,25 @@ function MembersTab({ serviceKey }) {
         throw new Error("Erro ao salvar membro no banco: " + msg);
       }
 
+      // ✅ FIX: salva os dados ANTES de limpar o form
+      const { name: membroNome, email: membroEmail, password: membroSenha, plan: membroPlano } = form;
       setForm({ name: "", email: "", password: "", plan: "pack" });
 
-      // Envia email de boas-vindas
+      // Envia email de boas-vindas com variáveis locais (não form.*)
       try {
         await fetch("/api/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            nome: form.name,
-            email: form.email,
-            senha: form.password,
-            plano: form.plan,
+            nome: membroNome,
+            email: membroEmail,
+            senha: membroSenha,
+            plano: membroPlano,
           }),
         });
-        setMsg({ type: "success", text: `✓ Membro "${form.name}" criado e email de boas-vindas enviado!` });
+        setMsg({ type: "success", text: `✓ Membro "${membroNome}" criado e email de boas-vindas enviado!` });
       } catch (_) {
-        setMsg({ type: "success", text: `✓ Membro "${form.name}" criado! (email não enviado — verifique a variável RESEND_API_KEY)` });
+        setMsg({ type: "success", text: `✓ Membro "${membroNome}" criado! (email não enviado — verifique a variável RESEND_API_KEY)` });
       }
 
       load();
@@ -898,7 +890,6 @@ function VideosTab({ serviceKey }) {
   );
 }
 
-
 // ─── Vendas ───────────────────────────────────────────────────────────────────
 const PLANOS_LABEL = { pack: "Pack Pro", curso: "Curso Completo", ambos: "Combo Completo" };
 const PLANOS_PRECO = { pack: 97, curso: 197, ambos: 247 };
@@ -917,7 +908,6 @@ function VendasTab({ serviceKey }) {
       const data = await supaFetch("/vendas?order=created_at.desc", {}, serviceKey);
       setVendas(data);
     } catch (e) {
-      // Tabela ainda não existe — mostra orientação
       if (e.message?.includes("relation") || e.message?.includes("does not exist") || e.message?.includes("404")) {
         setMsg({ type: "warn", text: "Tabela 'vendas' não encontrada no Supabase. Veja as instruções abaixo para criá-la." });
       } else {
@@ -941,7 +931,6 @@ function VendasTab({ serviceKey }) {
 
   const vendasFiltradas = filtro === "todos" ? vendas : vendas.filter(v => v.status === filtro);
 
-  // Métricas
   const totalFaturado = vendas.filter(v => v.status === "pago").reduce((s, v) => s + (v.valor || 0), 0);
   const totalPendente = vendas.filter(v => v.status === "pendente").reduce((s, v) => s + (v.valor || 0), 0);
   const hoje = new Date(); hoje.setHours(0,0,0,0);
@@ -985,7 +974,6 @@ CREATE POLICY "service_role full access" ON vendas USING (true) WITH CHECK (true
         </div>
       )}
 
-      {/* Cards de métricas */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 24 }}>
         {[
           { label: "FATURADO (PAGO)", valor: `R$ ${totalFaturado.toFixed(2).replace(".", ",")}`, color: "#4ade80" },
@@ -1000,7 +988,6 @@ CREATE POLICY "service_role full access" ON vendas USING (true) WITH CHECK (true
         ))}
       </div>
 
-      {/* Filtros */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {["todos", "pendente", "pago", "cancelado"].map(f => (
           <button
@@ -1017,7 +1004,6 @@ CREATE POLICY "service_role full access" ON vendas USING (true) WITH CHECK (true
         ))}
       </div>
 
-      {/* Tabela */}
       <div style={S.card}>
         <div style={S.cardTitle}> Pedidos ({vendasFiltradas.length})</div>
         {loading ? (
