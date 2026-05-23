@@ -37,6 +37,10 @@ async function fetchMemberByAuthId(authId: string): Promise<Member | null> {
     console.warn("[MemberAuth] Membro encontrado mas está INATIVO:", data.email);
   }
 
+  if (data?.expires_at && new Date(data.expires_at) < new Date()) {
+    console.warn("[MemberAuth] Plano expirado em:", data.expires_at);
+  }
+
   return data ?? null;
 }
 
@@ -70,6 +74,9 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
           } else if (!found.active) {
             await supabase.auth.signOut();
             setAuthError("Sua conta está inativa. Entre em contato com o suporte.");
+          } else if (found.expires_at && new Date(found.expires_at) < new Date()) {
+            await supabase.auth.signOut();
+            setAuthError("Seu acesso expirou. Entre em contato com o suporte para renovar.");
           } else {
             setMember(found);
           }
@@ -93,6 +100,10 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
         } else if (!found.active) {
           await supabase.auth.signOut();
           setAuthError("Sua conta está inativa. Entre em contato com o suporte.");
+          setMember(null);
+        } else if (found.expires_at && new Date(found.expires_at) < new Date()) {
+          await supabase.auth.signOut();
+          setAuthError("Seu acesso expirou. Entre em contato com o suporte para renovar.");
           setMember(null);
         } else {
           setAuthError(null);
