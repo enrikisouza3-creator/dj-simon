@@ -349,7 +349,7 @@ export default function Home() {
       <section id="pack" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <div className="tag-cyan inline-block mb-4">🎵 PACK DE MÚSICAS</div>
+            <div className="tag-cyan inline-block mb-4"> PACK DE MÚSICAS</div>
             <h2 className="font-display text-5xl md:text-7xl text-white">
               O ARSENAL DO{" "}
               <span className="text-cyan-400 glow-cyan">DJ PROFISSIONAL</span>
