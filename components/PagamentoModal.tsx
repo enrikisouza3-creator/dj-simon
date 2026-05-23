@@ -102,6 +102,20 @@ export default function PagamentoModal({ plano, onClose }: Props) {
         fontFamily: "'DM Sans', sans-serif",
         boxShadow: "0 0 60px rgba(0,245,255,0.1)",
       }}>
+        {/* Barra de urgência no topo do modal */}
+        <div style={{
+          margin: "-32px -32px 20px -32px",
+          background: "linear-gradient(90deg, #dc2626, #b91c1c)",
+          padding: "8px 16px",
+          borderRadius: "16px 16px 0 0",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}>
+          <span style={{ fontSize: 14 }}>🔥</span>
+          <span style={{ color: "#fff", fontFamily: "'Space Mono', monospace", fontSize: 10, letterSpacing: 1 }}>
+            OFERTA POR TEMPO LIMITADO — GARANTA AGORA
+          </span>
+        </div>
+
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div>
@@ -255,6 +269,30 @@ export default function PagamentoModal({ plano, onClose }: Props) {
           <span style={{ fontSize: 16 }}>🛡️</span>
           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "'Space Mono', monospace" }}>
             7 dias de garantia incondicional
+          </span>
+        </div>
+
+        {/* Social proof */}
+        <div style={{
+          marginTop: 12, padding: "10px 14px",
+          background: "rgba(0,245,255,0.04)", borderRadius: 8,
+          border: "1px solid rgba(0,245,255,0.08)",
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <div style={{ display: "flex" }}>
+            {["🟢","🟢","🟢"].map((_, i) => (
+              <div key={i} style={{
+                width: 24, height: 24, borderRadius: "50%",
+                background: "linear-gradient(135deg, #00f5ff22, #0066ff22)",
+                border: "1px solid rgba(0,245,255,0.3)",
+                marginLeft: i > 0 ? -8 : 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 10,
+              }}>🎧</div>
+            ))}
+          </div>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontFamily: "'Space Mono', monospace" }}>
+            <span style={{ color: "#00f5ff" }}>+47 pessoas</span> compraram nas últimas 24h
           </span>
         </div>
       </div>
