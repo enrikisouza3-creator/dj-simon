@@ -1,10 +1,25 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { buildPixPayload, aplicarCupom, MP_LINKS, PLANOS, PlanoKey } from "@/lib/pagamento";
+import { supabase } from "@/lib/supabase";
 
 interface Props {
   plano: PlanoKey;
   onClose: () => void;
+}
+
+async function registrarVenda(plano: PlanoKey, valor: number, metodo: string) {
+  try {
+    await supabase.from("vendas").insert({
+      plano,
+      valor,
+      metodo,
+      status: "pendente",
+    });
+  } catch (e) {
+    // Silencioso — não bloqueia o fluxo de pagamento
+    console.warn("[Vendas] Não foi possível registrar a venda:", e);
+  }
 }
 
 export default function PagamentoModal({ plano, onClose }: Props) {
@@ -19,10 +34,11 @@ export default function PagamentoModal({ plano, onClose }: Props) {
   const pixPayload = buildPixPayload(info.preco - desconto);
   const total = info.preco - desconto;
 
-  // Timer PIX
+  // Timer PIX + registra venda quando abre o PIX
   useEffect(() => {
     if (metodo !== "pix") return;
     setTimer(30 * 60);
+    registrarVenda(plano, total, "pix");
     timerRef.current = setInterval(() => {
       setTimer(t => {
         if (t <= 1) { clearInterval(timerRef.current!); return 0; }
@@ -214,6 +230,7 @@ export default function PagamentoModal({ plano, onClose }: Props) {
               href={MP_LINKS[plano]}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => registrarVenda(plano, total, "mp")}
               style={{
                 display: "block", width: "100%", padding: "14px 0", borderRadius: 6,
                 background: "#00b1ea", color: "#fff", fontSize: 14, fontWeight: 700,
