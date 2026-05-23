@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useMemberAuth } from "@/components/membro/MemberAuthProvider";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { authError } = useMemberAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,13 +20,27 @@ export default function LoginPage() {
     const { error: authErr } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authErr) {
-      setError("Email ou senha incorretos.");
+      // Mensagens de erro mais claras conforme o tipo
+      if (authErr.message.includes("Invalid login credentials")) {
+        setError("Email ou senha incorretos. Verifique seus dados e tente novamente.");
+      } else if (authErr.message.includes("Email not confirmed")) {
+        setError("Email não confirmado. Entre em contato com o suporte.");
+      } else if (authErr.message.includes("Too many requests")) {
+        setError("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
+      } else {
+        setError(`Erro ao entrar: ${authErr.message}`);
+      }
       setLoading(false);
       return;
     }
 
+    // O MemberAuthProvider vai buscar o membro e redirecionar.
+    // Se o auth_id não existir na tabela members, o provider vai deslogar e
+    // mostrar authError — o useEffect abaixo vai capturar isso.
     router.push("/membro/dashboard");
   };
+
+  const displayError = error || authError;
 
   return (
     <div style={{
@@ -93,6 +109,7 @@ export default function LoginPage() {
                   fontSize: 14,
                   outline: "none",
                   fontFamily: "'DM Sans', sans-serif",
+                  boxSizing: "border-box" as const,
                 }}
               />
             </div>
@@ -116,11 +133,12 @@ export default function LoginPage() {
                   fontSize: 14,
                   outline: "none",
                   fontFamily: "'DM Sans', sans-serif",
+                  boxSizing: "border-box" as const,
                 }}
               />
             </div>
 
-            {error && (
+            {displayError && (
               <div style={{
                 background: "rgba(239,68,68,0.1)",
                 border: "1px solid rgba(239,68,68,0.3)",
@@ -128,8 +146,9 @@ export default function LoginPage() {
                 padding: "10px 14px",
                 fontSize: 13,
                 color: "#ef4444",
+                lineHeight: 1.5,
               }}>
-                {error}
+                {displayError}
               </div>
             )}
 
