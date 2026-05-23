@@ -1002,7 +1002,7 @@ CREATE POLICY "service_role full access" ON vendas USING (true) WITH CHECK (true
 
       {/* Tabela */}
       <div style={S.card}>
-        <div style={S.cardTitle}>📋 Pedidos ({vendasFiltradas.length})</div>
+        <div style={S.cardTitle}> Pedidos ({vendasFiltradas.length})</div>
         {loading ? (
           <div style={{ color: C.muted, fontSize: 13 }}>Carregando...</div>
         ) : vendasFiltradas.length === 0 ? (
@@ -1029,7 +1029,7 @@ CREATE POLICY "service_role full access" ON vendas USING (true) WITH CHECK (true
                   <td style={S.td}>{v.email || "—"}</td>
                   <td style={S.td}>{PLANOS_LABEL[v.plano] || v.plano}</td>
                   <td style={S.td}>R$ {Number(v.valor || 0).toFixed(2).replace(".", ",")}</td>
-                  <td style={S.td}>{v.metodo === "pix" ? "⚡ PIX" : v.metodo === "mp" ? "💳 MP" : "—"}</td>
+                  <td style={S.td}>{v.metodo === "pix" ? " PIX" : v.metodo === "mp" ? " MP" : "—"}</td>
                   <td style={S.td}>
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 4,
@@ -1069,7 +1069,7 @@ CREATE POLICY "service_role full access" ON vendas USING (true) WITH CHECK (true
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: "▦" },
   { id: "members", label: "Membros", icon: "◎" },
-  { id: "vendas", label: "Vendas", icon: "💰" },
+  { id: "vendas", label: "Vendas", icon: "◈" },
   { id: "plugins", label: "Plugins", icon: "⬡" },
   { id: "videos", label: "Vídeos", icon: "▷" },
 ];
