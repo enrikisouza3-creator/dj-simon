@@ -175,9 +175,14 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "rgba(255,255,255,0.25)" }}>
-          Não tem acesso? <a href="/#planos" style={{ color: "rgba(0,245,255,0.6)", textDecoration: "none" }}>Adquira um plano</a>
-        </p>
+        <div style={{ textAlign: "center", marginTop: 24, display: "flex", flexDirection: "column", gap: 8 }}>
+          <a href="/membro/esqueci-senha" style={{ fontSize: 12, color: "rgba(0,245,255,0.6)", textDecoration: "none" }}>
+            Esqueci minha senha
+          </a>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", margin: 0 }}>
+            Não tem acesso? <a href="/#planos" style={{ color: "rgba(0,245,255,0.6)", textDecoration: "none" }}>Adquira um plano</a>
+          </p>
+        </div>
       </div>
     </div>
   );
