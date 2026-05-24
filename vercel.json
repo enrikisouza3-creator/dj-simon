@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/notificar-expiracao?secret=COLOQUE_UM_SEGREDO_AQUI",
+      "schedule": "0 10 * * *"
+    }
+  ]
+}
