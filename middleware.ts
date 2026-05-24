@@ -9,7 +9,7 @@ export async function middleware(req: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
 
   // Se não tem sessão e está tentando acessar área de membro, redireciona pro login
-  if (!session && req.nextUrl.pathname.startsWith('/membro') && !req.nextUrl.pathname.startsWith('/membro/login')) {
+  if (!session && req.nextUrl.pathname.startsWith('/membro') && !req.nextUrl.pathname.startsWith('/membro/login') && !req.nextUrl.pathname.startsWith('/membro/esqueci-senha') && !req.nextUrl.pathname.startsWith('/membro/nova-senha')) {
     return NextResponse.redirect(new URL('/membro/login', req.url))
   }
 
