@@ -34,10 +34,8 @@ export default function LoginPage() {
       return;
     }
 
-    // O MemberAuthProvider vai buscar o membro e redirecionar.
-    // Se o auth_id não existir na tabela members, o provider vai deslogar e
-    // mostrar authError — o useEffect abaixo vai capturar isso.
-    router.push("/membro/dashboard");
+    // Redireciona forçando reload completo para garantir que o middleware reconheça a sessão
+    window.location.href = "/membro/dashboard";
   };
 
   const displayError = error || authError;
