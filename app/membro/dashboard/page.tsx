@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useMemberAuth } from "@/components/membro/MemberAuthProvider";
 import withMemberAuth from "@/components/membro/withMemberAuth";
 import { supabase, Video, Progress } from "@/lib/supabase";
@@ -29,38 +29,155 @@ function StatCard({ value, label, color }: { value: string | number; label: stri
   );
 }
 
+// ── Skeleton de carregamento ──────────────────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <div style={{
+      background: "#060d14",
+      border: "1px solid rgba(0,245,255,0.1)",
+      borderRadius: 10,
+      padding: "20px 24px",
+      animation: "pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+    }}>
+      <div style={{
+        height: 32,
+        background: "rgba(0,245,255,0.1)",
+        borderRadius: 6,
+        marginBottom: 12,
+      }} />
+      <div style={{
+        height: 14,
+        background: "rgba(0,245,255,0.08)",
+        borderRadius: 4,
+        width: "60%",
+      }} />
+    </div>
+  );
+}
+
+function SkeletonDashboard() {
+  return (
+    <div style={{ padding: "40px 40px", maxWidth: 960 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 40 }}>
+        <div style={{
+          fontFamily: "'Space Mono', monospace",
+          fontSize: 10,
+          color: "rgba(0,245,255,0.5)",
+          letterSpacing: 4,
+          marginBottom: 8,
+        }}>
+          // DASHBOARD
+        </div>
+        <div style={{
+          height: 40,
+          background: "rgba(0,245,255,0.08)",
+          borderRadius: 8,
+          marginBottom: 12,
+          animation: "pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        }} />
+        <div style={{
+          height: 14,
+          background: "rgba(0,245,255,0.06)",
+          borderRadius: 6,
+          width: "40%",
+          animation: "pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        }} />
+      </div>
+
+      {/* Stats skeleton */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+        gap: 16,
+        marginBottom: 40,
+      }}>
+        {[1, 2, 3, 4].map((i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </div>
+
+      {/* Progress bar skeleton */}
+      <div style={{ marginBottom: 40 }}>
+        <div style={{
+          height: 12,
+          background: "rgba(0,245,255,0.08)",
+          borderRadius: 6,
+          marginBottom: 16,
+          animation: "pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        }} />
+      </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Conteúdo principal ──────────────────────────────────────────────────────
 function DashboardContent() {
   const { member } = useMemberAuth();
   const [videos, setVideos] = useState<Video[]>([]);
   const [progress, setProgress] = useState<Progress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!member) return;
+
     const load = async () => {
-      const planFilter = member.plan === "ambos"
-        ? ["curso", "ambos"]
-        : [member.plan, "ambos"];
+      try {
+        const planFilter = member.plan === "ambos"
+          ? ["curso", "ambos"]
+          : [member.plan, "ambos"];
 
-      const { data: vids } = await supabase
-        .from("videos")
-        .select("*")
-        .in("plan", planFilter)
-        .order("ordem", { ascending: true });
+        // ✅ FIX 1: Queries em paralelo + com limite + ordenação
+        const [vidsResult, progResult] = await Promise.all([
+          supabase
+            .from("videos")
+            .select("*")
+            .in("plan", planFilter)
+            .order("ordem", { ascending: true })
+            .limit(50), // ← LIMITE ADICIONADO
 
-      const { data: prog } = await supabase
-        .from("progress")
-        .select("*")
-        .eq("member_id", member.id);
+          supabase
+            .from("progress")
+            .select("*")
+            .eq("member_id", member.id)
+            .limit(100), // ← LIMITE ADICIONADO
+        ]);
 
-      setVideos(vids || []);
-      setProgress(prog || []);
-      setLoading(false);
+        if (vidsResult.error) throw new Error(`Erro ao buscar vídeos: ${vidsResult.error.message}`);
+        if (progResult.error) throw new Error(`Erro ao buscar progresso: ${progResult.error.message}`);
+
+        setVideos(vidsResult.data || []);
+        setProgress(progResult.data || []);
+      } catch (e: any) {
+        console.error("[Dashboard] Erro ao carregar:", e);
+        setError(e.message || "Erro ao carregar dados");
+      } finally {
+        setLoading(false);
+      }
     };
+
     load();
   }, [member]);
 
   if (!member) return null;
+  if (error) {
+    return (
+      <div style={{ padding: "40px 40px", color: "#f87171" }}>
+        <p>❌ {error}</p>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 8 }}>
+          Tente atualizar a página (F5)
+        </p>
+      </div>
+    );
+  }
 
   const hasCurso = member.plan === "curso" || member.plan === "ambos";
   const hasPack = member.plan === "pack" || member.plan === "ambos";
@@ -225,4 +342,13 @@ function DashboardContent() {
   );
 }
 
-export default withMemberAuth(DashboardContent);
+// ── Wrapper com Suspense ──────────────────────────────────────────────────
+function DashboardPage() {
+  return (
+    <Suspense fallback={<SkeletonDashboard />}>
+      {withMemberAuth(DashboardContent)({})}
+    </Suspense>
+  );
+}
+
+export default DashboardPage;
