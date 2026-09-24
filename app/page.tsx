@@ -70,23 +70,33 @@ function CountUp({ target, suffix = "" }: { target: number; suffix?: string }) {
 
 // ── Lead Form ─────────────────────────────────────────────────────────────────
 
-function LeadForm({ plan }: { plan: "pack" | "curso" | "ambos" }) {
+function LeadForm({ plan, onSuccess }: { plan: "pack" | "curso" | "ambos"; onSuccess: () => void }) {
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setStatus("loading");
+    setErrorMsg("");
     try {
       const res = await fetch("/api/lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, interest: plan }),
+        body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone, interest: plan }),
       });
-      if (!res.ok) throw new Error();
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erro ao capturar lead");
+      }
+      
       setStatus("ok");
-    } catch {
+      setForm({ name: "", email: "", phone: "" });
+      setTimeout(() => onSuccess(), 2000);
+    } catch (err: any) {
       setStatus("error");
+      setErrorMsg(err.message || "Algo deu errado. Tente novamente.");
     }
   }
 
@@ -98,7 +108,7 @@ function LeadForm({ plan }: { plan: "pack" | "curso" | "ambos" }) {
           INSCRIÇÃO CONFIRMADA!
         </p>
         <p className="text-white/60 text-center">
-          Em breve você receberá o acesso no e-mail cadastrado.
+          Você será redirecionado para o pagamento em breve...
         </p>
       </div>
     );
@@ -143,11 +153,11 @@ function LeadForm({ plan }: { plan: "pack" | "curso" | "ambos" }) {
       </button>
       {status === "error" && (
         <p className="text-red-400 text-sm text-center">
-          Algo deu errado. Tente novamente.
+          ❌ {errorMsg}
         </p>
       )}
       <p className="text-white/30 text-xs text-center font-mono">
-         Seus dados estão 100% seguros. Sem spam.
+        Seus dados estão 100% seguros. Sem spam.
       </p>
     </form>
   );
@@ -155,7 +165,6 @@ function LeadForm({ plan }: { plan: "pack" | "curso" | "ambos" }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-// ─── Nomes e cidades para notificações fake ───────────────────────────────────
 const COMPRADORES = [
   { nome: "Lucas M.", cidade: "São Paulo" },
   { nome: "Rafaela S.", cidade: "Curitiba" },
@@ -176,6 +185,7 @@ export default function Home() {
   const [activePlan, setActivePlan] = useState<"pack" | "curso" | "ambos">("ambos");
   const [modalPlano, setModalPlano] = useState<PlanoKey | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
 
   // ── Urgência: contador regressivo 24h por sessão ──────────────────────────
   const [timeLeft, setTimeLeft] = useState(0);
@@ -206,9 +216,8 @@ export default function Home() {
   useEffect(() => {
     const KEY = "djs_vagas";
     let v = parseInt(localStorage.getItem(KEY) || "0");
-    if (!v || v > 7) { v = Math.floor(Math.random() * 3) + 5; } // 5-7
+    if (!v || v > 7) { v = Math.floor(Math.random() * 3) + 5; }
     setVagas(v);
-    // Diminui 1 vaga aleatoriamente entre 8-20 min
     const delay = (Math.floor(Math.random() * 12) + 8) * 60 * 1000;
     const id = setTimeout(() => {
       const novo = Math.max(1, v - 1);
@@ -229,9 +238,7 @@ export default function Home() {
       idx++;
       setTimeout(() => setNotif(null), 4000);
     };
-    // Primeira notificação após 8s
     const first = setTimeout(mostrar, 8000);
-    // Depois a cada 25-45s
     const loop = setInterval(mostrar, (Math.floor(Math.random() * 20) + 25) * 1000);
     return () => { clearTimeout(first); clearInterval(loop); };
   }, []);
@@ -242,7 +249,6 @@ export default function Home() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Captura o ?ref= da URL e salva no localStorage para rastrear afiliados
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("ref");
@@ -364,6 +370,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+
       {/* NAV */}
       <nav
         className={`fixed w-full z-50 transition-all duration-300 ${
@@ -409,11 +416,9 @@ export default function Home() {
 
       {/* HERO */}
       <section className="relative min-h-screen flex flex-col items-center justify-center grid-bg overflow-hidden px-6">
-        {/* Glow orbs */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-cyan-400/5 blur-[120px] animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-cyan-400/8 blur-[100px] animate-pulse" style={{ animationDelay: "1.5s" }} />
 
-        {/* Scanline */}
         <div
           className="absolute left-0 w-full h-px bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent pointer-events-none"
           style={{ animation: "scan 6s linear infinite" }}
@@ -421,7 +426,7 @@ export default function Home() {
 
         <div className="relative z-10 text-center max-w-4xl mx-auto">
           <div className="tag-cyan inline-block mb-6">
-           ACESSO EXCLUSIVO — VAGAS LIMITADAS
+            ACESSO EXCLUSIVO — VAGAS LIMITADAS
           </div>
 
           <h1 className="font-display text-6xl md:text-8xl lg:text-9xl leading-none mb-4">
@@ -456,7 +461,6 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Social proof mini */}
           <div className="mt-10 flex items-center justify-center gap-2">
             {[1, 2, 3, 4, 5].map((i) => (
               <Star key={i} className="w-4 h-4 fill-cyan-400 text-cyan-400" />
@@ -510,10 +514,8 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 items-center">
-            {/* Visual */}
             <div className="relative">
               <div className="card-dark rounded-none p-8 glow-box relative overflow-hidden">
-                {/* Decorative */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-400/5 rounded-full blur-2xl" />
                 <div className="flex items-center gap-3 mb-6">
                   <Music className="text-cyan-400 w-6 h-6" />
@@ -544,7 +546,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* List */}
             <div>
               <ul className="space-y-4 mb-8">
                 {packItems.map((item) => (
@@ -599,7 +600,6 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Bonus */}
           <div className="mt-12 card-dark p-8 rounded-none border-cyan-400/30">
             <div className="flex items-center gap-3 mb-4">
               <Zap className="text-cyan-400 w-6 h-6" />
@@ -659,143 +659,144 @@ export default function Home() {
       <section id="inscricao" className="py-24 px-6 grid-bg">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <div className="tag-cyan inline-block mb-4"> ESCOLHA SEU PLANO</div>
+            <div className="tag-cyan inline-block mb-4"> GARANTA SEU ACESSO</div>
             <h2 className="font-display text-5xl md:text-7xl text-white">
-              INVISTA NO SEU{" "}
-              <span className="text-cyan-400 glow-cyan">FUTURO</span>
+              ESCOLHA SEU{" "}
+              <span className="text-cyan-400 glow-cyan">PLANO</span>
             </h2>
             <p className="mt-4 text-white/60">
-              Escolha o plano ideal e garanta sua vaga agora.
+              Preencha seus dados abaixo para começar agora mesmo.
             </p>
-            {/* Barra de escassez */}
-            <div className="mt-6 inline-flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2 text-sm font-mono text-red-400">
-                <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                Apenas <strong>{vagas} vagas</strong> disponíveis neste preço
-              </div>
-              <div style={{ width: 240, height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 99 }}>
-                <div style={{
-                  width: `${((7 - vagas) / 7) * 100 + 14}%`,
-                  height: "100%", borderRadius: 99,
-                  background: "linear-gradient(90deg, #ef4444, #dc2626)",
-                  boxShadow: "0 0 8px rgba(239,68,68,0.6)",
-                  transition: "width 1s ease",
-                }} />
-              </div>
-              <div className="text-xs text-white/30 font-mono">{100 - Math.round(((7 - vagas) / 7) * 100 + 14)}% das vagas já foram preenchidas</div>
-            </div>
           </div>
 
-          {/* Plan selector */}
-          <div className="flex justify-center gap-3 mb-12 flex-wrap">
-            {(["pack", "curso", "ambos"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setActivePlan(p)}
-                className={`font-display text-lg px-6 py-2 tracking-widest transition-all clip-path-[polygon(6px_0%,100%_0%,calc(100%-6px)_100%,0%_100%)] ${
-                  activePlan === p
-                    ? "bg-cyan-400 text-black shadow-[0_0_20px_rgba(0,245,255,0.5)]"
-                    : "border border-cyan-400/30 text-cyan-400 hover:border-cyan-400/70"
-                }`}
-                style={{
-                  clipPath: "polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%)",
-                }}
-              >
-                {p === "pack" ? "PACK" : p === "curso" ? "CURSO" : "COMBO"}
-              </button>
-            ))}
-          </div>
+          {!showCheckout ? (
+            <>
+              {/* Lead Form */}
+              <div className="max-w-xl mx-auto mb-16 card-dark p-8 rounded-none">
+                <h3 className="font-display text-2xl text-white mb-6">Seus Dados</h3>
+                <LeadForm 
+                  plan={activePlan}
+                  onSuccess={() => setShowCheckout(true)}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Plan selector */}
+              <div className="flex justify-center gap-3 mb-12 flex-wrap">
+                {(["pack", "curso", "ambos"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setActivePlan(p)}
+                    className={`font-display text-lg px-6 py-2 tracking-widest transition-all clip-path-[polygon(6px_0%,100%_0%,calc(100%-6px)_100%,0%_100%)] ${
+                      activePlan === p
+                        ? "bg-cyan-400 text-black shadow-[0_0_20px_rgba(0,245,255,0.5)]"
+                        : "border border-cyan-400/30 text-cyan-400 hover:border-cyan-400/70"
+                    }`}
+                    style={{
+                      clipPath: "polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%)",
+                    }}
+                  >
+                    {p === "pack" ? "PACK" : p === "curso" ? "CURSO" : "COMBO"}
+                  </button>
+                ))}
+              </div>
 
-          <div className="grid md:grid-cols-2 gap-10">
-            {/* Price card */}
-            <div className="card-dark p-8 rounded-none glow-box text-center">
-              {activePlan === "pack" && (
-                <>
-                  <div className="tag-cyan inline-block mb-4"> PACK PRO</div>
-                  <div className="font-display text-7xl text-white mb-1">R$97</div>
-                  <p className="text-white/40 text-sm mb-6 font-mono">acesso vitalício</p>
-                  <ul className="text-left space-y-3 mb-8">
-                    {packItems.map((i) => (
-                      <li key={i} className="flex gap-2 text-white/70 text-sm">
-                        <CheckCircle2 className="text-cyan-400 w-4 h-4 mt-0.5 shrink-0" />
-                        {i}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {activePlan === "curso" && (
-                <>
-                  <div className="tag-cyan inline-block mb-4">🎧 CURSO COMPLETO</div>
-                  <div className="font-display text-7xl text-white mb-1">R$197</div>
-                  <p className="text-white/40 text-sm mb-6 font-mono">acesso por 1 ano</p>
-                  <ul className="text-left space-y-3 mb-8">
-                    {courseModules.map((m) => (
-                      <li key={m.num} className="flex gap-2 text-white/70 text-sm">
-                        <CheckCircle2 className="text-cyan-400 w-4 h-4 mt-0.5 shrink-0" />
-                        Módulo {m.num}: {m.title}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {activePlan === "ambos" && (
-                <>
-                  <div className="tag-cyan inline-block mb-4"> COMBO COMPLETO</div>
-                  <div className="flex items-center justify-center gap-3 mb-1">
-                    <span className="font-display text-3xl text-white/30 line-through">R$294</span>
-                    <div className="font-display text-7xl text-cyan-400 glow-cyan">R$247</div>
+              <div className="grid md:grid-cols-2 gap-10">
+                {/* Price card */}
+                <div className="card-dark p-8 rounded-none glow-box text-center">
+                  {activePlan === "pack" && (
+                    <>
+                      <div className="tag-cyan inline-block mb-4"> PACK PRO</div>
+                      <div className="font-display text-7xl text-white mb-1">R$97</div>
+                      <p className="text-white/40 text-sm mb-6 font-mono">acesso vitalício</p>
+                      <ul className="text-left space-y-3 mb-8">
+                        {packItems.map((i) => (
+                          <li key={i} className="flex gap-2 text-white/70 text-sm">
+                            <CheckCircle2 className="text-cyan-400 w-4 h-4 mt-0.5 shrink-0" />
+                            {i}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {activePlan === "curso" && (
+                    <>
+                      <div className="tag-cyan inline-block mb-4">🎧 CURSO COMPLETO</div>
+                      <div className="font-display text-7xl text-white mb-1">R$197</div>
+                      <p className="text-white/40 text-sm mb-6 font-mono">acesso por 1 ano</p>
+                      <ul className="text-left space-y-3 mb-8">
+                        {courseModules.map((m) => (
+                          <li key={m.num} className="flex gap-2 text-white/70 text-sm">
+                            <CheckCircle2 className="text-cyan-400 w-4 h-4 mt-0.5 shrink-0" />
+                            Módulo {m.num}: {m.title}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {activePlan === "ambos" && (
+                    <>
+                      <div className="tag-cyan inline-block mb-4"> COMBO COMPLETO</div>
+                      <div className="flex items-center justify-center gap-3 mb-1">
+                        <span className="font-display text-3xl text-white/30 line-through">R$294</span>
+                        <div className="font-display text-7xl text-cyan-400 glow-cyan">R$247</div>
+                      </div>
+                      <p className="text-cyan-400 text-sm mb-2 font-mono">você economiza R$47</p>
+                      <p className="text-white/40 text-sm mb-6 font-mono">pack vitalício + curso 1 ano</p>
+                      <ul className="text-left space-y-3 mb-8">
+                        {[...packItems.slice(0, 3), ...courseModules.slice(0, 3).map(m => `Módulo ${m.num}: ${m.title}`), "Grupo VIP", "7 dias de garantia"].map((i) => (
+                          <li key={i} className="flex gap-2 text-white/70 text-sm">
+                            <CheckCircle2 className="text-cyan-400 w-4 h-4 mt-0.5 shrink-0" />
+                            {i}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+
+                  <div className="flex items-center justify-center gap-2 text-white/30 text-xs font-mono">
+                    <Shield className="w-3 h-3" />
+                    7 dias de garantia incondicional
                   </div>
-                  <p className="text-cyan-400 text-sm mb-2 font-mono">você economiza R$47</p>
-                  <p className="text-white/40 text-sm mb-6 font-mono">pack vitalício + curso 1 ano</p>
-                  <ul className="text-left space-y-3 mb-8">
-                    {[...packItems.slice(0, 3), ...courseModules.slice(0, 3).map(m => `Módulo ${m.num}: ${m.title}`), "Grupo VIP", "7 dias de garantia"].map((i) => (
-                      <li key={i} className="flex gap-2 text-white/70 text-sm">
-                        <CheckCircle2 className="text-cyan-400 w-4 h-4 mt-0.5 shrink-0" />
-                        {i}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
+                </div>
 
-              <div className="flex items-center justify-center gap-2 text-white/30 text-xs font-mono">
-                <Shield className="w-3 h-3" />
-                7 dias de garantia incondicional
+                {/* Buy */}
+                <div className="card-dark p-8 rounded-none flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-display text-3xl text-white mb-2">
+                      FINALIZE SUA COMPRA
+                    </h3>
+                    <p className="text-white/50 text-sm mb-6">
+                      Pagamento 100% seguro via PIX ou cartão. Acesso liberado em minutos.
+                    </p>
+                    <ul className="space-y-3 mb-8">
+                      {["Acesso imediato após pagamento", "7 dias de garantia incondicional", "Suporte direto no WhatsApp", "Pagamento via PIX ou cartão"].map(item => (
+                        <li key={item} className="flex gap-2 text-white/70 text-sm">
+                          <CheckCircle2 className="text-cyan-400 w-4 h-4 mt-0.5 shrink-0" />
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => setModalPlano(activePlan)}
+                      className="btn-cta w-full text-lg py-4"
+                    >
+                      PAGAR AGORA
+                    </button>
+                    <button
+                      onClick={() => setShowCheckout(false)}
+                      className="w-full border border-cyan-400/30 text-cyan-400 py-2 rounded hover:border-cyan-400 transition"
+                    >
+                      Voltar
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Buy */}
-            <div className="card-dark p-8 rounded-none flex flex-col justify-between">
-              <div>
-                <h3 className="font-display text-3xl text-white mb-2">
-                  GARANTA SUA VAGA
-                </h3>
-                <p className="text-white/50 text-sm mb-6">
-                  Pagamento 100% seguro via PIX ou cartão. Acesso liberado em minutos.
-                </p>
-                <ul className="space-y-3 mb-8">
-                  {["Acesso imediato após pagamento", "7 dias de garantia incondicional", "Suporte direto no WhatsApp", "Pagamento via PIX ou cartão"].map(item => (
-                    <li key={item} className="flex gap-2 text-white/70 text-sm">
-                      <CheckCircle2 className="text-cyan-400 w-4 h-4 mt-0.5 shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="space-y-3">
-                <button
-                  onClick={() => setModalPlano(activePlan)}
-                  className="btn-cta w-full text-lg py-4"
-                >
-                   QUERO GARANTIR AGORA
-                </button>
-                <p className="text-center text-white/30 text-xs font-mono">
-                  7 dias de garantia incondicional
-                </p>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </section>
 
