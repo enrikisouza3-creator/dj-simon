@@ -57,8 +57,8 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const startTime = performance.now();
 
-    // ✅ FIX: Aumentar timeout de 8s para 12s (mais realista para rede lenta)
-    const TIMEOUT_MS = 12000;
+    // ✅ FIX: Aumentar timeout de 8s para 20s (mais realista para rede lenta/Supabase lento)
+    const TIMEOUT_MS = 20000;
     const safetyTimeout = setTimeout(() => {
       setLoading((prev) => {
         if (prev) {
