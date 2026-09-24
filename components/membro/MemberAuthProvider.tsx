@@ -51,6 +51,21 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    // Trava de segurança: se em 8s a checagem de sessão não terminou (ex: lock
+    // do Supabase preso entre abas, rede lenta), libera a tela mesmo assim em
+    // vez de deixar "CARREGANDO..." travado pra sempre.
+    const safetyTimeout = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          console.error(
+            "[MemberAuth] Timeout de 8s verificando sessão -- liberando a tela. " +
+            "Se isso acontecer com frequência, feche outras abas deste site e tente de novo."
+          );
+        }
+        return false;
+      });
+    }, 8000);
+
     const init = async () => {
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -84,6 +99,7 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
       } catch (e: any) {
         console.error("[MemberAuth] Erro inesperado:", e);
       } finally {
+        clearTimeout(safetyTimeout);
         setLoading(false);
       }
     };
@@ -115,7 +131,10 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, [router]);
 
   const logout = async () => {
