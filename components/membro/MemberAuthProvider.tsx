@@ -14,38 +14,49 @@ const Ctx = createContext<AuthCtx>({ member: null, loading: true, authError: nul
 
 async function fetchMemberByAuthId(authId: string): Promise<Member | null> {
   const start = performance.now();
-  const { data, error } = await supabase
-    .from("members")
-    .select("*")
-    .eq("auth_id", authId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from("members")
+      .select("*")
+      .eq("auth_id", authId)
+      .single();
 
-  const duration = performance.now() - start;
-  console.log(`[MemberAuth] fetchMemberByAuthId: ${duration.toFixed(0)}ms`);
+    const duration = performance.now() - start;
+    console.log(`[MemberAuth] fetchMemberByAuthId: ${duration.toFixed(0)}ms`);
 
-  if (error) {
-    // PGRST116 = nenhuma linha encontrada
-    if (error.code === "PGRST116") {
-      console.error(
-        "[MemberAuth] ⚠️ Usuário autenticado no Supabase Auth mas NÃO encontrado em members.\n" +
-        "auth_id:", authId, "\n" +
-        "↳ Verifique se foi criado registro em members ao fazer login"
-      );
-    } else {
-      console.error("[MemberAuth] Erro na query:", error.code, error.message);
+    if (error) {
+      // PGRST116 = nenhuma linha encontrada
+      if (error.code === "PGRST116") {
+        console.error(
+          "[MemberAuth] ⚠️ Usuário autenticado no Supabase Auth mas NÃO encontrado em members.\n" +
+          "auth_id:", authId, "\n" +
+          "↳ Verifique se foi criado registro em members ao fazer signup"
+        );
+      } else if (error.code === "PGRST109") {
+        console.error(
+          "[MemberAuth] 🔒 ERRO DE RLS! Permissão negada na tabela members.\n" +
+          "↳ Verifique as Row Level Security policies no Supabase\n" +
+          "↳ Código do erro:", error.code
+        );
+      } else {
+        console.error("[MemberAuth] ❌ Erro na query:", error.code, error.message);
+      }
+      return null;
     }
+
+    if (data && !data.active) {
+      console.warn("[MemberAuth] ⚠️ Membro inativo:", data.email);
+    }
+
+    if (data?.expires_at && new Date(data.expires_at) < new Date()) {
+      console.warn("[MemberAuth] ⏰ Plano expirado:", data.expires_at);
+    }
+
+    return data ?? null;
+  } catch (err: any) {
+    console.error("[MemberAuth] 🔥 Erro inesperado em fetchMemberByAuthId:", err.message);
     return null;
   }
-
-  if (data && !data.active) {
-    console.warn("[MemberAuth] ⚠️ Membro inativo:", data.email);
-  }
-
-  if (data?.expires_at && new Date(data.expires_at) < new Date()) {
-    console.warn("[MemberAuth] ⏰ Plano expirado:", data.expires_at);
-  }
-
-  return data ?? null;
 }
 
 export function MemberAuthProvider({ children }: { children: ReactNode }) {
@@ -57,15 +68,16 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const startTime = performance.now();
 
-    // ✅ FIX: Aumentar timeout de 8s para 20s (mais realista para rede lenta/Supabase lento)
-    const TIMEOUT_MS = 20000;
+    // ✅ Aumentado para 30s (RLS query pode ser lenta no Supabase gratuito)
+    const TIMEOUT_MS = 30000;
     const safetyTimeout = setTimeout(() => {
       setLoading((prev) => {
         if (prev) {
           const elapsed = (performance.now() - startTime).toFixed(0);
           console.error(
             `[MemberAuth] ⏱️ Timeout de ${TIMEOUT_MS}ms na verificação de sessão (${elapsed}ms decorridos)\n` +
-            "↳ Causas possíveis: Rede lenta, Supabase lento, múltiplas abas\n" +
+            "↳ Causas possíveis: Rede lenta, RLS bloqueando, Supabase lento, múltiplas abas\n" +
+            "↳ DICA: Verifique as Row Level Security policies no Supabase Console\n" +
             "↳ Liberando a tela mesmo assim..."
           );
         }
@@ -145,7 +157,7 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
             setMember(found);
           }
         } catch (err: any) {
-          console.error("[MemberAuth] Erro ao processar SIGNED_IN:", err.message);
+          console.error("[MemberAuth] 🔥 Erro ao processar SIGNED_IN:", err.message);
           setAuthError("Erro ao validar conta. Tente novamente.");
         }
       } else if (event === "SIGNED_OUT") {
