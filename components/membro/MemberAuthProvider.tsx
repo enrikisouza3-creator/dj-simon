@@ -122,25 +122,35 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
       console.log(`[MemberAuth] onAuthStateChange: ${event}`);
 
       if (event === "SIGNED_IN" && session?.user) {
-        const found = await fetchMemberByAuthId(session.user.id);
-        if (!found) {
-          await supabase.auth.signOut();
-          setAuthError("Conta não encontrada. Entre em contato com o suporte.");
-          setMember(null);
-        } else if (!found.active) {
-          await supabase.auth.signOut();
-          setAuthError("Sua conta está inativa.");
-          setMember(null);
-        } else if (found.expires_at && new Date(found.expires_at) < new Date()) {
-          await supabase.auth.signOut();
-          setAuthError("Seu acesso expirou.");
-          setMember(null);
-        } else {
-          setAuthError(null);
-          setMember(found);
+        try {
+          const found = await fetchMemberByAuthId(session.user.id);
+          if (!found) {
+            console.error("[MemberAuth] ❌ Membro não encontrado para auth_id:", session.user.id);
+            await supabase.auth.signOut();
+            setAuthError("Conta não encontrada. Entre em contato com o suporte.");
+            setMember(null);
+          } else if (!found.active) {
+            console.warn("[MemberAuth] ❌ Membro inativo:", found.email);
+            await supabase.auth.signOut();
+            setAuthError("Sua conta está inativa.");
+            setMember(null);
+          } else if (found.expires_at && new Date(found.expires_at) < new Date()) {
+            console.warn("[MemberAuth] ⏰ Acesso expirado em:", found.expires_at);
+            await supabase.auth.signOut();
+            setAuthError("Seu acesso expirou.");
+            setMember(null);
+          } else {
+            console.log("[MemberAuth] ✅ Login bem-sucedido:", found.name);
+            setAuthError(null);
+            setMember(found);
+          }
+        } catch (err: any) {
+          console.error("[MemberAuth] Erro ao processar SIGNED_IN:", err.message);
+          setAuthError("Erro ao validar conta. Tente novamente.");
         }
       } else if (event === "SIGNED_OUT") {
         setMember(null);
+        setAuthError(null);
         router.push("/membro/login");
       }
     });
