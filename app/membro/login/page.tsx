@@ -8,14 +8,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginTimeout, setLoginTimeout] = useState<NodeJS.Timeout | null>(null);
   const { member, authError, loading: authLoading } = useMemberAuth();
 
   // Se já está logado e membro carregado, redireciona
   useEffect(() => {
     if (!authLoading && member) {
+      // Limpa timeout de login ao redirecionar com sucesso
+      if (loginTimeout) clearTimeout(loginTimeout);
       window.location.href = "/membro/dashboard";
     }
-  }, [member, authLoading]);
+  }, [member, authLoading, loginTimeout]);
 
   // Se o login no Auth funcionou mas o MemberAuthProvider concluiu que não há
   // acesso (membro não encontrado / inativo / expirado), ele desloga e seta
@@ -32,22 +35,40 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const { error: authErr } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (authErr) {
-      if (authErr.message.includes("Invalid login credentials")) {
-        setError("Email ou senha incorretos. Verifique seus dados e tente novamente.");
-      } else if (authErr.message.includes("Email not confirmed")) {
-        setError("Email não confirmado. Entre em contato com o suporte.");
-      } else if (authErr.message.includes("Too many requests")) {
-        setError("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
-      } else {
-        setError(`Erro ao entrar: ${authErr.message}`);
-      }
+    // Timeout de 12s - se não redirecionar, libera o botão com erro
+    const timeoutId = setTimeout(() => {
       setLoading(false);
-      return;
+      setError("Demorando demais para entrar. Verifique sua conexão e tente novamente.");
+      setLoginTimeout(null);
+    }, 12000);
+    setLoginTimeout(timeoutId);
+
+    try {
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (authErr) {
+        clearTimeout(timeoutId);
+        setLoginTimeout(null);
+        if (authErr.message.includes("Invalid login credentials")) {
+          setError("Email ou senha incorretos. Verifique seus dados e tente novamente.");
+        } else if (authErr.message.includes("Email not confirmed")) {
+          setError("Email não confirmado. Entre em contato com o suporte.");
+        } else if (authErr.message.includes("Too many requests")) {
+          setError("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
+        } else {
+          setError(`Erro ao entrar: ${authErr.message}`);
+        }
+        setLoading(false);
+        return;
+      }
+      // Aguarda o MemberAuthProvider processar e o useEffect acima redirecionar
+      // O timeout será limpado pelo useEffect de redirecionamento ou vai dispara o erro
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      setLoginTimeout(null);
+      setLoading(false);
+      setError(`Erro inesperado: ${e.message}`);
     }
-    // Aguarda o MemberAuthProvider processar e o useEffect acima redirecionar
   };
 
   const displayError = error || authError;
